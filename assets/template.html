@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>[画册标题]</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400&family=IBM+Plex+Mono:wght@300;400;500;600&family=Noto+Serif+SC:wght@300;400;500;600;700;900&family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* 默认: 暖墨 */
+    --ink:#1a1612;
+    --ink-rgb:26,22,18;
+    --paper:#f5f0e8;
+    --paper-rgb:245,240,232;
+    --paper-tint:#ebe5d9;
+    --ink-tint:#2a2420;
+    --accent:#8b7355;
+    --accent-rgb:139,115,85;
+
+    --mono:"IBM Plex Mono",ui-monospace,monospace;
+    --serif-en:"Playfair Display","Source Serif 4",Georgia,serif;
+    --serif-zh:"Noto Serif SC",source-han-serif-sc,serif;
+    --sans-zh:"Noto Sans SC",source-han-sans-sc,sans-serif;
+  }
+
+  /* 银盐主题（通过 class 切换） */
+  body.silver{
+    --ink:#1a1a1a;
+    --ink-rgb:26,26,26;
+    --paper:#f0f0f0;
+    --paper-rgb:240,240,240;
+    --paper-tint:#e5e5e5;
+    --ink-tint:#2a2a2a;
+    --accent:#666;
+    --accent-rgb:102,102,102;
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    width:100%;min-height:100vh;
+    background:var(--paper);color:var(--ink);
+    font-family:var(--sans-zh);
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    overflow-x:hidden;
+  }
+
+  /* ============ 页面（spread）============ */
+  .spread{
+    width:100%;min-height:100vh;
+    position:relative;
+    display:flex;flex-direction:column;
+    padding:6vh 8vw;
+    scroll-snap-align:start;
+    overflow:hidden;
+  }
+  .spread.dark{
+    background:var(--ink);color:var(--paper);
+  }
+  .spread.hero{
+    padding:0;
+  }
+
+  /* ============ 字体 ============ */
+  .kicker{font-family:var(--mono);font-size:11px;letter-spacing:.3em;text-transform:uppercase;opacity:.5;margin-bottom:2vh}
+  .h-hero{font-family:var(--serif-zh);font-weight:900;font-size:clamp(2.5rem,8vw,6rem);line-height:1;letter-spacing:-.02em}
+  .h-xl{font-family:var(--serif-zh);font-weight:700;font-size:clamp(1.8rem,5vw,3.5rem);line-height:1.12;letter-spacing:-.01em}
+  .h-md{font-family:var(--serif-zh);font-weight:600;font-size:clamp(1.2rem,3vw,2rem);line-height:1.3}
+  .h-sub{font-family:var(--serif-zh);font-weight:500;font-size:clamp(1rem,2.5vw,1.5rem);line-height:1.25;opacity:.7}
+  .lead{font-family:var(--serif-zh);font-weight:400;font-size:clamp(1rem,1.8vw,1.4rem);line-height:1.6;opacity:.85}
+  .body-zh{font-family:var(--sans-zh);font-weight:400;font-size:clamp(14px,1.2vw,16px);line-height:1.8;opacity:.82}
+  .meta{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;opacity:.5}
+  .caption{font-family:var(--sans-zh);font-weight:400;font-size:13px;line-height:1.6;opacity:.65;margin-top:1vh}
+  .page-num{font-family:var(--mono);font-size:10px;letter-spacing:.2em;opacity:.35;position:absolute;bottom:3vh;right:4vw}
+
+  /* ============ 图片 ============ */
+  .photo{width:100%;height:auto;display:block;object-fit:cover;border-radius:2px}
+  .photo.hero-img{width:100%;height:100vh;object-fit:cover;position:absolute;inset:0}
+  .photo-contain{object-fit:contain}
+
+  /* ============ 封面 ============ */
+  .cover{
+    display:flex;flex-direction:column;justify-content:flex-end;
+    padding:8vh 8vw 12vh;position:relative;
+    min-height:100vh;color:var(--paper);
+  }
+  .cover::after{
+    content:"";position:absolute;inset:0;
+    background:linear-gradient(0deg,rgba(var(--ink-rgb),.7) 0%,rgba(var(--ink-rgb),0) 50%);
+    pointer-events:none;
+  }
+  .cover>*{position:relative;z-index:1}
+  .cover .h-hero{font-size:clamp(2rem,7vw,5rem);margin-bottom:2vh}
+  .cover .meta{color:rgba(var(--paper-rgb),.6)}
+
+  /* ============ 双页并置 ============ */
+  .duo{display:grid;grid-template-columns:1fr 1fr;gap:3vw;flex:1;align-items:center}
+  .duo.tall{align-items:stretch}
+  .duo .photo{height:100%;object-fit:cover}
+
+  /* ============ 图片网格 ============ */
+  .grid-2x2{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:2vh 2vw;flex:1}
+  .grid-3x3{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:1.5vh 1.5vw;flex:1}
+  .grid-2x3{display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:1fr 1fr;gap:2vh 2vw;flex:1}
+  .grid-item{overflow:hidden;border-radius:2px}
+  .grid-item .photo{width:100%;height:100%;object-fit:cover}
+
+  /* ============ 左文右图 ============ */
+  .text-photo{display:grid;grid-template-columns:1fr 1fr;gap:4vw;flex:1;align-items:center}
+  .text-photo.reverse{grid-template-columns:1fr 1fr;direction:rtl}
+  .text-photo.reverse>*{direction:ltr}
+  .text-photo .text-col{display:flex;flex-direction:column;gap:2vh}
+
+  /* ============ 全屏照片 ============ */
+  .full-photo{position:relative;min-height:100vh;display:flex;align-items:flex-end;padding:8vh 8vw}
+  .full-photo .photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
+  .full-photo .overlay{position:relative;z-index:1;color:var(--paper);max-width:60vw}
+  .full-photo .overlay::before{
+    content:"";position:absolute;inset:-4vh -4vw;
+    background:rgba(var(--ink-rgb),.35);backdrop-filter:blur(2px);
+    z-index:-1;border-radius:2px;
+  }
+
+  /* ============ 引言页 ============ */
+  .quote-page{
+    display:flex;align-items:center;justify-content:center;
+    text-align:center;min-height:100vh;padding:10vh 12vw;
+  }
+  .quote-page .q-text{
+    font-family:var(--serif-zh);font-weight:600;
+    font-size:clamp(1.4rem,3.5vw,2.8rem);line-height:1.5;
+  }
+  .quote-page .q-cite{
+    font-family:var(--mono);font-size:12px;letter-spacing:.2em;
+    text-transform:uppercase;opacity:.5;margin-top:3vh;
+  }
+
+  /* ============ 章节分隔 ============ */
+  .chapter{
+    display:flex;flex-direction:column;justify-content:center;
+    align-items:center;text-align:center;min-height:60vh;gap:2vh;
+  }
+
+  /* ============ 时间线 ============ */
+  .timeline{display:flex;flex-direction:column;gap:4vh;flex:1;padding-top:4vh}
+  .tl-item{display:grid;grid-template-columns:120px 1fr;gap:2vw;align-items:start}
+  .tl-date{font-family:var(--mono);font-size:12px;letter-spacing:.15em;opacity:.5;padding-top:.3vh}
+  .tl-content{display:flex;flex-direction:column;gap:1vh}
+
+  /* ============ 尾页 ============ */
+  .colophon{
+    display:flex;flex-direction:column;justify-content:center;
+    align-items:center;text-align:center;min-height:60vh;gap:3vh;
+    opacity:.7;
+  }
+
+  /* ============ 辅助 ============ */
+  .rule{width:60px;height:1px;background:currentColor;opacity:.2;margin:2vh 0}
+  .rule.center{margin-inline:auto}
+  .spacer{height:4vh}
+  .spacer-lg{height:8vh}
+
+  /* ============ 响应式 ============ */
+  @media(max-width:768px){
+    .spread{padding:4vh 5vw}
+    .duo,.text-photo,.text-photo.reverse{grid-template-columns:1fr;gap:2vh}
+    .grid-3x3{grid-template-columns:1fr 1fr}
+    .tl-item{grid-template-columns:80px 1fr}
+    .full-photo .overlay{max-width:80vw}
+    .cover{padding:6vh 6vw 10vh}
+  }
+
+  /* ============ 打印优化 ============ */
+  @media print{
+    .spread{break-after:page;min-height:auto;height:auto;padding:2cm}
+    .spread.hero{padding:0}
+    .photo.hero-img{position:relative;height:80vh}
+    .page-num{position:relative;bottom:auto;right:auto;text-align:right;margin-top:1cm}
+  }
+</style>
+</head>
+<body>
+
+<div id="album">
+
+<!-- ============================================================
+     画册页面插入区
+     在此处替换为生成的 <section class="spread ..."> 页面
+     ============================================================ -->
+
+<!-- SPREADS_HERE -->
+
+</div>
+
+<script>
+// Scroll-snap 配置
+document.getElementById('album').style.scrollSnapType = 'y mandatory';
+
+// 键盘翻页（上下键翻到下一个 spread）
+const spreads = document.querySelectorAll('.spread');
+let current = 0;
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === ' ') {
+    e.preventDefault();
+    current = Math.min(current + 1, spreads.length - 1);
+    spreads[current].scrollIntoView({behavior:'smooth'});
+  } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+    e.preventDefault();
+    current = Math.max(current - 1, 0);
+    spreads[current].scrollIntoView({behavior:'smooth'});
+  }
+});
+
+// 滚动时更新 current
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      current = [...spreads].indexOf(e.target);
+    }
+  });
+}, {threshold: 0.5});
+spreads.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>
