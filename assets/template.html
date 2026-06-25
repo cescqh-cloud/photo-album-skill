@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <title>[画册标题]</title>
+<script>
+  const earlyParams = new URLSearchParams(location.search || location.hash.slice(1));
+  const exportPreset = earlyParams.get("export");
+  if (exportPreset) document.documentElement.dataset.export = exportPreset;
+  document.documentElement.classList.add("js");
+</script>
 <style>
   :root{
     --paper:#f4efe6;
@@ -109,6 +115,7 @@
     background:var(--paper-2);
     box-shadow:var(--shadow);
   }
+  .photo-card.soft{box-shadow:none;border:1px solid var(--line)}
 
   .kicker,.meta,.page-num{
     font-family:var(--mono);
@@ -231,6 +238,9 @@
     height:min(74svh,860px);
   }
   .duo .photo-card:nth-child(2){transform:translateY(clamp(10px,2.4vh,28px))}
+  .duo.equal .photo-card:nth-child(2){transform:none}
+  .duo.portrait-pair{grid-template-columns:.86fr .86fr;justify-content:center}
+  .duo.mixed{grid-template-columns:1.25fr .75fr}
 
   .triptych{
     display:grid;
@@ -241,6 +251,11 @@
     height:min(76svh,880px);
   }
   .triptych .photo-card:first-child{grid-row:1 / 3}
+  .triptych.top-lead{
+    grid-template-columns:1fr 1fr;
+    grid-template-rows:1.35fr .65fr;
+  }
+  .triptych.top-lead .photo-card:first-child{grid-column:1 / 3;grid-row:1}
 
   .grid-2x2{
     display:grid;
@@ -249,6 +264,36 @@
     gap:clamp(9px,1.3vw,20px);
     width:100%;
     height:min(74svh,860px);
+  }
+
+  .photo-note{
+    display:grid;
+    grid-template-columns:minmax(0,1.35fr) minmax(210px,.65fr);
+    align-items:end;
+    gap:clamp(26px,5vw,78px);
+    width:100%;
+  }
+  .photo-note.reverse{grid-template-columns:minmax(210px,.65fr) minmax(0,1.35fr)}
+  .photo-note.reverse .photo-note-copy{order:1}
+  .photo-note.reverse .photo-card{order:2}
+  .photo-note .photo-card{height:min(72svh,820px)}
+  .photo-note-copy{padding-bottom:clamp(8px,4vh,48px)}
+  .photo-note-copy .lead{font-size:clamp(1.1rem,2.1vw,1.7rem)}
+
+  .bleed-note{padding:0;background:var(--dark)}
+  .bleed-note .photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .bleed-note-copy{
+    position:relative;
+    z-index:1;
+    align-self:flex-start;
+    margin:clamp(30px,7vh,84px) clamp(24px,7vw,112px);
+    max-width:min(34rem,70vw);
+    padding:clamp(20px,3vw,38px);
+    border:1px solid rgba(255,255,255,.18);
+    border-radius:18px;
+    background:rgba(12,10,9,.46);
+    color:#fffaf1;
+    backdrop-filter:blur(16px);
   }
 
   .story{
@@ -361,13 +406,122 @@
     .cover .h-hero{font-size:clamp(2.5rem,16vw,5rem)}
     .duo{grid-template-columns:1fr;grid-template-rows:1fr 1fr;height:78svh;gap:10px}
     .duo .photo-card:nth-child(2){transform:none}
+    .duo.portrait-pair,.duo.mixed{grid-template-columns:1fr 1fr;grid-template-rows:1fr}
     .triptych{grid-template-columns:1.2fr .8fr;height:72svh}
+    .triptych.top-lead{grid-template-columns:1fr 1fr}
     .story,.story.reverse{grid-template-columns:1fr;gap:24px}
     .story.reverse .story-copy,.story.reverse .photo-card{order:initial}
     .story .photo-card{height:52svh}
+    .photo-note,.photo-note.reverse{grid-template-columns:1fr;gap:22px}
+    .photo-note.reverse .photo-note-copy,.photo-note.reverse .photo-card{order:initial}
+    .photo-note .photo-card{height:56svh}
+    .photo-note-copy{padding-bottom:0}
     .body-zh{line-height:1.75}
     .focus-shell{height:70svh}
   }
+
+  /* 固定画幅导出：脚本逐页截图时启用 */
+  html[data-export]{scroll-behavior:auto}
+  html[data-export] body{width:100vw;height:100vh;overflow:hidden;background:var(--paper)}
+  html[data-export] #album{scroll-snap-type:none}
+  html[data-export] .spread{
+    width:100vw;
+    height:100vh;
+    min-height:100vh;
+    padding:6.5vh 6.5vw;
+    scroll-snap-align:none;
+  }
+  html[data-export] .spread.hero,
+  html[data-export] .bleed-note{padding:0}
+  html[data-export] .cover{min-height:100vh;padding:8vh 7.5vw}
+  html[data-export] .album-chrome,
+  html[data-export] .progress,
+  html[data-export] .lightbox{display:none!important}
+  html[data-export] [data-anim]{
+    opacity:1!important;
+    transform:none!important;
+    transition:none!important;
+  }
+  html[data-export] .page-num{right:4.5vw;bottom:3.2vh}
+  html[data-export] .photo-card{border-radius:1.4vw}
+
+  /* 小红书 3:4：图文上下排，首图和文字保留中央安全区 */
+  html[data-export="xhs"] .cover .h-hero{font-size:9.8vw;max-width:8em}
+  html[data-export="xhs"] .cover{padding-bottom:9vh}
+  html[data-export="xhs"] .duo,
+  html[data-export="portrait"] .duo{
+    grid-template-columns:1fr;
+    grid-template-rows:1fr 1fr;
+    height:78vh;
+    gap:1.7vh;
+  }
+  html[data-export="xhs"] .duo .photo-card:nth-child(2),
+  html[data-export="portrait"] .duo .photo-card:nth-child(2){transform:none}
+  html[data-export="xhs"] .duo.portrait-pair,
+  html[data-export="portrait"] .duo.portrait-pair{
+    grid-template-columns:1fr 1fr;
+    grid-template-rows:1fr;
+    height:74vh;
+  }
+  html[data-export="xhs"] .triptych,
+  html[data-export="portrait"] .triptych{
+    grid-template-columns:1fr 1fr;
+    grid-template-rows:1.35fr .65fr;
+    height:78vh;
+  }
+  html[data-export="xhs"] .triptych .photo-card:first-child,
+  html[data-export="portrait"] .triptych .photo-card:first-child{
+    grid-column:1 / 3;
+    grid-row:1;
+  }
+  html[data-export="xhs"] .story,
+  html[data-export="xhs"] .story.reverse,
+  html[data-export="portrait"] .story,
+  html[data-export="portrait"] .story.reverse,
+  html[data-export="xhs"] .photo-note,
+  html[data-export="xhs"] .photo-note.reverse,
+  html[data-export="portrait"] .photo-note,
+  html[data-export="portrait"] .photo-note.reverse{
+    grid-template-columns:1fr;
+    align-content:center;
+    gap:3vh;
+  }
+  html[data-export="xhs"] .story-copy,
+  html[data-export="xhs"] .photo-note-copy,
+  html[data-export="portrait"] .story-copy,
+  html[data-export="portrait"] .photo-note-copy{order:1!important;padding:0}
+  html[data-export="xhs"] .story .photo-card,
+  html[data-export="xhs"] .photo-note .photo-card,
+  html[data-export="portrait"] .story .photo-card,
+  html[data-export="portrait"] .photo-note .photo-card{
+    order:2!important;
+    height:62vh;
+  }
+  html[data-export="xhs"] .focus-shell,
+  html[data-export="portrait"] .focus-shell{height:79vh}
+
+  /* 朋友圈方图：构图更紧，避免文字落在九宫格预览边缘 */
+  html[data-export="moments"] .spread{padding:7vh 7vw}
+  html[data-export="moments"] .cover{padding:8vh 8vw}
+  html[data-export="moments"] .cover .h-hero{font-size:8.4vw}
+  html[data-export="moments"] .duo{height:72vh}
+  html[data-export="moments"] .triptych,
+  html[data-export="moments"] .grid-2x2{height:70vh}
+  html[data-export="moments"] .story,
+  html[data-export="moments"] .story.reverse,
+  html[data-export="moments"] .photo-note,
+  html[data-export="moments"] .photo-note.reverse{
+    grid-template-columns:.72fr 1.28fr;
+    gap:5vw;
+  }
+  html[data-export="moments"] .story-copy,
+  html[data-export="moments"] .photo-note-copy{order:1!important}
+  html[data-export="moments"] .story .photo-card,
+  html[data-export="moments"] .photo-note .photo-card{
+    order:2!important;
+    height:68vh;
+  }
+  html[data-export="moments"] .focus-shell{height:78vh}
 
   @media (prefers-reduced-motion:reduce){
     html{scroll-behavior:auto}
@@ -397,7 +551,6 @@
     html.js [data-anim]{opacity:1;transform:none}
   }
 </style>
-<script>document.documentElement.classList.add("js")</script>
 </head>
 <body data-theme="warm">
 
@@ -437,6 +590,8 @@
   const lightbox = document.getElementById("lightbox");
   const lightboxImage = document.getElementById("lightboxImage");
   const themes = ["warm", "silver", "night"];
+  const pageParams = new URLSearchParams(location.search || location.hash.slice(1));
+  const exportPage = Number(pageParams.get("page"));
   let current = 0;
 
   if (!spreads.length) {
@@ -445,6 +600,9 @@
   }
 
   spreads.forEach((spread, index) => {
+    if (document.documentElement.dataset.export && exportPage > 0 && index !== exportPage - 1) {
+      spread.hidden = true;
+    }
     spread.dataset.page = String(index + 1);
     if (!spread.querySelector(".page-num") && !spread.classList.contains("hero")) {
       const number = document.createElement("span");
@@ -483,7 +641,7 @@
   }, {threshold:[.35,.55,.75]});
 
   spreads.forEach(spread => observer.observe(spread));
-  update(0);
+  update(exportPage > 0 ? exportPage - 1 : 0);
 
   document.getElementById("prevPage").addEventListener("click", () => go(current - 1));
   document.getElementById("nextPage").addEventListener("click", () => go(current + 1));

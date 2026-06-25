@@ -65,6 +65,10 @@ class Photo:
         return bool(self.width and self.height and self.height > self.width * 1.08)
 
     @property
+    def is_landscape(self) -> bool:
+        return bool(self.width and self.height and self.width > self.height * 1.16)
+
+    @property
     def alt(self) -> str:
         return self.caption or self.path.stem.replace("_", " ").replace("-", " ")
 
@@ -202,7 +206,7 @@ def read_config(source: Path, config_path: Path | None) -> dict[str, Any]:
     if not candidate.exists():
         return {}
     try:
-        data = json.loads(candidate.read_text(encoding="utf-8"))
+        data = json.loads(candidate.read_text(encoding="utf-8-sig"))
     except (OSError, json.JSONDecodeError) as exc:
         raise SystemExit(f"无法读取配置文件 {candidate}: {exc}") from exc
     if not isinstance(data, dict):
@@ -320,7 +324,7 @@ def caption_block(photo: Photo) -> str:
 
 def cover_page(photo: Photo, title: str, subtitle: str) -> str:
     return f"""
-<section class="spread hero dark">
+<section class="spread hero dark" data-layout="cover">
   {image_tag(photo, "hero-img")}
   <div class="cover">
     <p class="meta" data-anim>PHOTO ALBUM</p>
@@ -332,7 +336,7 @@ def cover_page(photo: Photo, title: str, subtitle: str) -> str:
 
 def focus_page(photo: Photo, page_number: int) -> str:
     return f"""
-<section class="spread dark focus-page">
+<section class="spread dark focus-page" data-layout="focus">
   <div class="focus-haze" aria-hidden="true"></div>
   {page_kicker(page_number)}
   <div class="focus-shell">{image_tag(photo)}</div>
@@ -343,39 +347,56 @@ def focus_page(photo: Photo, page_number: int) -> str:
 def story_page(photo: Photo, page_number: int, reverse: bool) -> str:
     direction = " reverse" if reverse else ""
     return f"""
-<section class="spread">
+<section class="spread" data-layout="story">
   <div class="story{direction}">
     <div class="story-copy">
       {page_kicker(page_number, "记一笔")}
-      <h2 class="h-xl" data-anim>{esc(photo.path.stem.replace("_", " ").replace("-", " "))}</h2>
       <div class="rule" data-anim></div>
-      <p class="body-zh" data-anim>{esc(photo.caption)}</p>
+      <p class="lead" data-anim>{esc(photo.caption)}</p>
     </div>
     <div class="photo-card">{image_tag(photo)}</div>
   </div>
 </section>"""
 
 
+def photo_note_page(photo: Photo, page_number: int, reverse: bool) -> str:
+    direction = " reverse" if reverse else ""
+    return f"""
+<section class="spread" data-layout="photo-note">
+  <div class="photo-note{direction}">
+    <div class="photo-card">{image_tag(photo)}</div>
+    <div class="photo-note-copy">
+      {page_kicker(page_number, "旁注")}
+      <p class="lead" data-anim>{esc(photo.caption)}</p>
+    </div>
+  </div>
+</section>"""
+
+
 def duo_page(photos: list[Photo], page_number: int) -> str:
     cards = "\n".join(f'    <div class="photo-card">{image_tag(photo)}</div>' for photo in photos)
-    captions = [photo.caption for photo in photos if photo.caption]
-    caption = f'<p class="caption" data-anim>{esc(" · ".join(captions))}</p>' if captions else ""
+    if len(photos) == 2 and all(photo.is_portrait for photo in photos):
+        variant = " portrait-pair"
+    elif len(photos) == 2 and photos[0].is_landscape != photos[1].is_landscape:
+        variant = " mixed"
+    else:
+        variant = " equal"
     return f"""
-<section class="spread">
+<section class="spread" data-layout="duo">
   {page_kicker(page_number)}
-  <div class="duo">
+  <div class="duo{variant}">
 {cards}
   </div>
-  {caption}
 </section>"""
 
 
 def triptych_page(photos: list[Photo], page_number: int) -> str:
     cards = "\n".join(f'    <div class="photo-card">{image_tag(photo)}</div>' for photo in photos)
+    variant = " top-lead" if photos[0].is_landscape else ""
     return f"""
-<section class="spread">
+<section class="spread" data-layout="triptych">
   {page_kicker(page_number)}
-  <div class="triptych">
+  <div class="triptych{variant}">
 {cards}
   </div>
 </section>"""
@@ -384,7 +405,7 @@ def triptych_page(photos: list[Photo], page_number: int) -> str:
 def grid_page(photos: list[Photo], page_number: int) -> str:
     cards = "\n".join(f'    <div class="photo-card">{image_tag(photo)}</div>' for photo in photos)
     return f"""
-<section class="spread">
+<section class="spread" data-layout="grid">
   {page_kicker(page_number)}
   <div class="grid-2x2">
 {cards}
@@ -394,7 +415,7 @@ def grid_page(photos: list[Photo], page_number: int) -> str:
 
 def end_page(title: str, count: int) -> str:
     return f"""
-<section class="spread end-page">
+<section class="spread end-page" data-layout="end">
   <div class="end-mark" data-anim>·</div>
   <p class="meta" data-anim>{esc(title)}</p>
   <h2 class="h-xl" data-anim>共 {count} 张照片</h2>
@@ -414,27 +435,43 @@ def choose_cover(photos: list[Photo], configured_cover: Any) -> Photo:
     return photos[0]
 
 
-def build_spreads(photos: list[Photo], title: str, subtitle: str, config: dict[str, Any]) -> str:
+def build_spreads(
+    photos: list[Photo],
+    title: str,
+    subtitle: str,
+    config: dict[str, Any],
+    composition: str,
+) -> str:
     cover = choose_cover(photos, config.get("cover"))
     remaining = [photo for photo in photos if photo is not cover]
     pages = [cover_page(cover, title, subtitle)]
     page_number = 2
     pattern_index = 0
-    patterns = ("duo", "grid", "focus", "triptych", "focus")
+    patterns_by_composition = {
+        "auto": ("duo", "focus", "triptych", "grid", "focus"),
+        "editorial": ("focus", "duo", "focus", "triptych"),
+        "gallery": ("duo", "triptych", "grid", "focus"),
+    }
+    patterns = patterns_by_composition[composition]
 
     while remaining:
-        if remaining[0].caption and len(remaining[0].caption) >= 12:
+        if remaining[0].caption and len(remaining[0].caption) >= 28:
             photo = remaining.pop(0)
             pages.append(story_page(photo, page_number, reverse=page_number % 2 == 0))
+        elif remaining[0].caption:
+            photo = remaining.pop(0)
+            pages.append(photo_note_page(photo, page_number, reverse=page_number % 2 == 1))
         else:
             pattern = patterns[pattern_index % len(patterns)]
             pattern_index += 1
             if len(remaining) == 1 or pattern == "focus":
                 pages.append(focus_page(remaining.pop(0), page_number))
-            elif pattern == "grid" and len(remaining) >= 4:
+            elif pattern == "grid" and len(remaining) >= 4 and not any(photo.caption for photo in remaining[:4]):
                 pages.append(grid_page(remaining[:4], page_number))
                 del remaining[:4]
-            elif pattern == "triptych" and len(remaining) >= 3:
+            elif pattern == "triptych" and len(remaining) >= 3 and not any(
+                photo.caption for photo in remaining[:3]
+            ):
                 pages.append(triptych_page(remaining[:3], page_number))
                 del remaining[:3]
             else:
@@ -457,6 +494,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--title", help="画册标题；默认使用目录名")
     parser.add_argument("--subtitle", help="封面副标题；默认显示照片数量")
     parser.add_argument("--theme", choices=("warm", "silver", "night"), default=None, help="初始主题")
+    parser.add_argument(
+        "--composition",
+        choices=("auto", "editorial", "gallery"),
+        default=None,
+        help="页面编排倾向：自动、图文编辑或图片排列",
+    )
     parser.add_argument("--sort", choices=("auto", "time", "name"), default="auto", help="照片顺序")
     parser.add_argument("--recursive", action="store_true", help="递归扫描子目录")
     parser.add_argument("--max-photos", type=int, default=80, help="最多使用的照片数；0 表示全部")
@@ -511,6 +554,9 @@ def main() -> int:
     theme = args.theme or config.get("theme") or "warm"
     if theme not in {"warm", "silver", "night"}:
         theme = "warm"
+    composition = args.composition or config.get("composition") or "auto"
+    if composition not in {"auto", "editorial", "gallery"}:
+        composition = "auto"
 
     template_path = args.template or (Path(__file__).resolve().parents[1] / "assets" / "template.html")
     try:
@@ -526,7 +572,10 @@ def main() -> int:
     output.parent.mkdir(parents=True, exist_ok=True)
     rendered = template.replace("[画册标题]", esc(title))
     rendered = rendered.replace('body data-theme="warm"', f'body data-theme="{theme}"', 1)
-    rendered = rendered.replace("<!-- SPREADS_HERE -->", build_spreads(photos, title, subtitle, config))
+    rendered = rendered.replace(
+        "<!-- SPREADS_HERE -->",
+        build_spreads(photos, title, subtitle, config, composition),
+    )
     output.write_text(rendered, encoding="utf-8")
 
     size_mb = output.stat().st_size / (1024 * 1024)

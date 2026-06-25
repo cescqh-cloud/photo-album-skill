@@ -1,0 +1,7 @@
+interface:
+  display_name: "图文照片画册"
+  short_description: "将照片与文字编排成画册，并导出小红书或朋友圈图片组"
+  default_prompt: "请使用 $photo-album-skill 把我的照片和文字编排成 HTML 画册，并按需要导出小红书或朋友圈图片组。"
+
+policy:
+  allow_implicit_invocation: true
