@@ -1,6 +1,6 @@
 ---
 name: photo-album-skill
-description: 将照片和文字编排成自然、克制的单文件 HTML 画册，并可逐页导出为适合小红书、微信朋友圈直接按顺序上传的图片组。支持图文编辑排版、单图留白、双图并置、主图加细节、网格排列、自动选序、旅行、人物、宠物、街拍与日常记录。用户提到画册、照片书、相册网页、图文排版、图片排列、小红书配图、朋友圈九宫格、photo album、photo book，或希望把一批照片做成可发布合集时使用。
+description: 将照片和文字编排成自然、克制的单文件 HTML 画册，并可逐页导出为适合小红书、微信朋友圈直接按顺序上传的图片组。支持压缩已有 standalone HTML 里的内嵌 base64 图片。用户提到画册、照片书、相册网页、图文排版、图片太大、HTML 太大、压缩单文件相册、photo album、photo book，或希望把一批照片做成可发布合集时使用。
 ---
 
 # Photo Album Skill
@@ -114,12 +114,33 @@ node scripts/export_social.mjs "album.html" --preset moments --out "social\momen
 
 默认 PNG 导出只需要系统已有的 Edge、Chrome 或 Chromium。用户明确需要体积更小的 JPG 时，安装 `playwright-core` 并加 `--format jpg`。
 
+## 压缩已有单文件 HTML
+
+当用户给的是别的软件生成的 `album_standalone.html`、单文件相册或内嵌 base64 图片的 HTML，并说“图片太大”“HTML 太大”“压小一点”“适合离线阅读”时，优先使用压缩脚本，不重做排版。
+
+```powershell
+python scripts/compress_standalone.py "album_standalone.html"
+python scripts/compress_standalone.py "album_standalone.html" -o "album_standalone_small.html"
+python scripts/compress_standalone.py "album_standalone.html" --max-edge 1800 --quality 82
+```
+
+脚本会：
+
+- 扫描 `data:image/...;base64` 内嵌图片。
+- 纠正 EXIF 方向，将图片最长边缩到默认 1800px。
+- 统一输出适合离线阅读的 JPEG 内嵌副本。
+- 默认不覆盖原 HTML；输出文件名为 `_small.html`。
+- 如果某张小图压完反而更大，默认保留原内嵌图。
+
+压缩后仍需打开小版 HTML 检查封面、中间页、尾页和手机宽度；如果还要 PDF，再从小版 HTML 打印或导出 PDF。
+
 ## 素材与文字
 
 - 扫描图片：`.jpg`、`.jpeg`、`.png`、`.webp`、`.gif`；遇到 HEIC/HEIF 时提示转换。
 - 读取同目录的 `.txt`、`.md` 和用户明确提供的文档。
 - 优先使用 EXIF 时间；没有时间时保持自然文件名顺序。
 - 不移动、不重命名、不改写原照片。
+- 压缩已有 standalone HTML 时也不覆盖原 HTML，除非用户明确指定输出路径并确认。
 - 默认输出到当前工作区，除非用户指定其他位置。
 
 文字分三档处理：
@@ -155,6 +176,7 @@ node scripts/export_social.mjs "album.html" --preset moments --out "social\momen
 - 没有真实文字时宁可留白，不生成假感悟。
 - 外部字体不是必需依赖；成品离线打开也应保持可读。
 - 单文件过大时先减少照片或使用 Pillow 压缩，不牺牲原文件。
+- 已有单文件 HTML 过大时，使用 `scripts/compress_standalone.py` 生成小版 HTML，再基于小版导出 PDF。
 
 ## 验收
 

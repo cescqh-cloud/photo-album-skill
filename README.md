@@ -72,6 +72,30 @@ node scripts/export_social.mjs "album.html" --preset xhs --format jpg --quality 
 
 没有自动找到浏览器时，可用 `--browser` 指定路径。
 
+## 压缩已有单文件 HTML
+
+如果相册是其他软件生成的 standalone HTML，图片以内嵌 base64 形式塞进文件里，文件可能会非常大。可以直接压缩内嵌图片，生成一个更适合离线阅读的小版 HTML，不改原文件：
+
+```powershell
+python scripts/compress_standalone.py "D:\Photos\贵阳\album_standalone.html"
+
+# 指定输出位置
+python scripts/compress_standalone.py "D:\Photos\贵阳\album_standalone.html" `
+  -o "D:\Photos\贵阳\album_standalone_small.html"
+
+# 调整尺寸和质量
+python scripts/compress_standalone.py "album_standalone.html" --max-edge 1800 --quality 82
+```
+
+默认行为：
+
+- 扫描 `data:image/...;base64` 内嵌图片。
+- 将图片最长边缩到 1800px，并转成适合离线阅读的 JPEG。
+- 输出 `_small.html`，不覆盖原 HTML。
+- 某张小图压完反而更大时，保留原图。
+
+压缩后建议打开小版 HTML 检查封面、中间页和尾页；需要 PDF 时，再从小版 HTML 打印或导出 PDF。
+
 ## 加标题、说明和指定封面
 
 在照片目录放一个 `album.json`：
@@ -178,6 +202,7 @@ photo-album-skill/
 ├── .gitignore
 ├── scripts/
 │   ├── build_album.py          ← 零依赖 HTML 画册生成器
+│   ├── compress_standalone.py  ← 压缩已有单文件 HTML 的内嵌图片
 │   └── export_social.mjs       ← 小红书/朋友圈图片导出
 ├── assets/
 │   └── template.html           ← HTML 模板（warm/silver/night）
