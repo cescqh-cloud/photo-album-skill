@@ -31,84 +31,74 @@
 - 有很多散落照片，想让它们重新成为一个完整的故事。
 - 想把已有的超大 HTML 相册压小一点，方便离线阅读和分享。
 
-## 怎么用
+## 使用方式
 
-在 Codex 或 Claude Code 里直接说：
+更推荐用 Agent 来操作，比如 Codex、Claude Code、Trae 这类能读文件、跑脚本、打开浏览器检查结果的工具。
 
-```text
-帮我把 D:\Photos\周末散步 做成一本日常画册。
+### 推荐：用 Agent
+
+先把仓库放到本地：
+
+```powershell
+git clone https://github.com/cescqh-cloud/photo-album-skill.git
 ```
 
-想认真选图和组织故事，可以说：
-
-```text
-做成叙事精排版，保留真实的小细节，不要写模板化文案。
-```
-
-想让文案更贴近回忆，可以加一句：
-
-```text
-重点帮我想清楚：这些照片当时为什么会被拍下来。
-```
-
-想发小红书或朋友圈：
-
-```text
-做成画册，再导出小红书图片组。
-```
-
-## 安装
-
-如果你在 Codex 中使用，可以把仓库放到本地 skills 目录：
+如果你用 Codex，可以直接安装成 skill：
 
 ```powershell
 git clone https://github.com/cescqh-cloud/photo-album-skill.git `
   "$env:USERPROFILE\.codex\skills\photo-album-skill"
 ```
 
-也可以作为普通命令行工具使用：
+然后把照片文件夹路径发给 Agent，说清楚你想要什么：
+
+```text
+使用 photo-album-skill，把 D:\Photos\周末散步 做成一本日常画册。
+```
+
+想认真整理，就这样说：
+
+```text
+做成叙事精排版，保留真实的小细节，不要写模板化文案。
+重点帮我想清楚：这些照片当时为什么会被拍下来。
+```
+
+想要发布版本：
+
+```text
+做成画册，同时导出小红书图片组。
+```
+
+Agent 更适合做这些事：帮你选图、读同目录的 txt/md、整理时间线、写克制的文案、导出 HTML/PDF/社交图片，并检查页面有没有溢出或裁切。
+
+### 不用 Agent：命令行
+
+只想自己跑工具，也可以直接命令行生成：
 
 ```powershell
 git clone https://github.com/cescqh-cloud/photo-album-skill.git
 cd photo-album-skill
-```
-
-需要 Python 3.8+。基础 HTML 画册生成功能零依赖。安装 Pillow 后可以自动修正 EXIF 方向并压缩大图：
-
-```powershell
-python -m pip install Pillow
-```
-
-## 快速开始
-
-```powershell
 python scripts/build_album.py "D:\Photos\周末散步"
 ```
 
 默认输出当前目录下的 `album.html`。
 
-常用写法：
+需要更认真一点的图文排版：
 
 ```powershell
-# 指定标题与输出位置
-python scripts/build_album.py "D:\Photos\周末散步" `
-  --title "周末散步" `
-  -o "D:\Photos\周末散步.html"
+python scripts/build_album.py "D:\Photos\周末散步" --composition editorial
+```
 
-# 扫描子目录，并限制成品照片数量
+想扫描子目录并限制照片数量：
+
+```powershell
 python scripts/build_album.py "D:\Photos\2026" --recursive --max-photos 60
+```
 
-# 更偏图文编辑排版
-python scripts/build_album.py "D:\Photos\周末" --composition editorial
+可选安装 Pillow，用来修正 EXIF 方向并压缩大图：
 
-# 更偏图片组合与排列
-python scripts/build_album.py "D:\Photos\周末" --composition gallery
-
-# 街拍 / 黑白
-python scripts/build_album.py "D:\Photos\街拍" --theme silver
-
-# 夜景 / 演出 / 聚会
-python scripts/build_album.py "D:\Photos\夜晚" --theme night
+```powershell
+python -m pip install Pillow
 ```
 
 生成器会自动：
