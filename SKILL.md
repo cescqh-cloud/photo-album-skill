@@ -57,6 +57,8 @@ python scripts/build_album.py "照片目录" -o "album.html" --theme silver --so
 python scripts/build_album.py "照片目录" -o "album.html" --max-photos 60 --recursive
 python scripts/build_album.py "照片目录" -o "album.html" --composition editorial
 python scripts/build_album.py "照片目录" -o "album.html" --composition gallery
+python scripts/build_album.py "照片目录" -o "album.html" --profile fast
+python scripts/build_album.py "照片目录" -o "album.html" --profile quality
 ```
 
 生成器会：
@@ -64,10 +66,11 @@ python scripts/build_album.py "照片目录" -o "album.html" --composition galle
 - 读取 JPG、JPEG、PNG、WEBP、GIF。
 - 优先按拍摄时间排序；读取不到时按文件名自然排序。
 - 根据横竖比例、文字长度和前后照片自动组合页面。
+- 为图片写入 `aspect-*` 与 `fit-*` 类；默认安全完整展示，只有封面和明确出血图才裁切铺满。
 - 将图片内嵌为 data URI，输出单个离线 HTML。
 - 自动加入翻页按钮、键盘导航、进度、主题切换、图片放大和打印样式。
 
-如环境安装 Pillow，生成器会自动纠正 EXIF 方向并压缩大图；没有 Pillow 也可正常生成，只是文件更大。HEIC/HEIF 需先转换为浏览器支持的格式。
+如环境安装 Pillow，生成器会自动纠正 EXIF 方向并压缩大图；默认 `balanced` 档位为最长边 1600px、质量 80。`--profile fast` 输出更小文件，`--profile quality` 更接近旧版清晰度；没有 Pillow 也可正常生成，只是文件更大。HEIC/HEIF 需先转换为浏览器支持的格式。
 
 ### 图文与图片精排版（按需）
 
@@ -85,6 +88,7 @@ python scripts/build_album.py "照片目录" -o "album.html" --composition galle
    - 一张环境主图 + 两张细节：`triptych`。
    - 四张同场景碎片：`grid`。
    - 竖图、合照、高潮或停顿：`focus`。
+   - 云海、山脊、航拍、横向长图：`panorama`，优先完整展示。
 5. 使用 4 段节奏：
    - 开场：1 张建立气氛。
    - 展开：用双图与网格交代人物、环境和细节。
@@ -176,7 +180,9 @@ python scripts/compress_standalone.py "album_standalone.html" --max-edge 1800 --
 - 文字和图片必须形成关系：解释前后、补充细节、回答为什么拍下或保留用户原话。
 - 保留少量“不完美但有记忆”的照片，日常画册不应像摄影比赛。
 - 连续页面不要重复同一布局；单图 → 双图/网格 → 单图形成呼吸。
+- 长文字页不要连续出现；风景和航拍优先让照片自己说话，文字降级为旁注或页脚说明。
 - 人像和竖图优先完整展示，不默认裁掉脸和身体。
+- 路牌、菜单、建筑、合照、食物、手机截图等主体不确定的照片默认使用 `fit-contain`，不要为了填满卡片硬裁。
 - 没有真实文字时宁可留白，不生成假感悟。
 - 外部字体不是必需依赖；成品离线打开也应保持可读。
 - 单文件过大时先减少照片或使用 Pillow 压缩，不牺牲原文件。

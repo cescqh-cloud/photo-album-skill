@@ -14,7 +14,7 @@
 
 ### story · 长文字 + 单图
 
-适合 28–100 个汉字的用户原话。文字与图片左右排列，导出 3:4 时自动改为上文下图。
+适合少量真正需要独立阅读的 28–100 个汉字用户原话。文字与图片左右排列，导出 3:4 时自动改为上文下图。不要因为 caption 长就连续使用 `story`；风景、航拍和路途说明优先降级为 `photo-note` 或普通 caption。
 
 ```html
 <section class="spread" data-layout="story">
@@ -32,12 +32,13 @@
 规则：
 
 - 一页只放一段话，不超过 100 个汉字。
+- 连续 3–4 页内最多出现 1 个 `story`，除非用户明确提供了一组必须阅读的日记文本。
 - 文字不要逐字描述照片，应补充时间、动作前后或用户记忆。
 - 人像注视方向朝左时，文字优先放左侧；朝右时反过来。
 
 ### photo-note · 短文字旁注
 
-适合 8–28 个汉字。照片占约 2/3，文字是旁注，不做大标题。
+适合 8–28 个汉字；长风景说明也可使用 `long-note` 变体降级处理。照片占约 2/3，文字是旁注，不做大标题。
 
 ```html
 <section class="spread" data-layout="photo-note">
@@ -75,10 +76,27 @@
 
 ```html
 <section class="spread dark focus-page" data-layout="focus">
-  <div class="focus-haze" aria-hidden="true"></div>
-  <div class="focus-shell"><img class="photo" src="DATA_URI" alt=""></div>
+  <div class="focus-shell"><img class="photo fit-contain" src="DATA_URI" alt=""></div>
 </section>
 ```
+
+### panorama · 宽幅风景和航拍
+
+用于云海、山脊、湖面、航拍、全景和横向长图。优先完整展示，不把山脊、路牌、天空层次硬裁掉。
+
+```html
+<section class="spread panorama-page" data-layout="panorama">
+  <p class="kicker" data-anim>08</p>
+  <div class="panorama-frame"><img class="photo fit-contain aspect-pano" src="DATA_URI" alt=""></div>
+  <p class="caption" data-anim>雾散开的那几分钟。</p>
+</section>
+```
+
+规则：
+
+- 宽幅图先考虑 `panorama`，再考虑 `focus`。
+- 如果图里有山脊线、路牌、人物边缘或建筑边界，使用 `fit-contain`。
+- 只有确定裁掉边缘不伤害主体时，才允许 `fit-cover`。
 
 ### duo · 双图并置
 
@@ -148,7 +166,8 @@
 | 素材 | 优先布局 |
 |---|---|
 | 有 28–100 字真实文字 | `story` |
-| 有 8–28 字真实文字 | `photo-note` |
+| 有 8–28 字真实文字，或长风景说明 | `photo-note` |
+| 宽幅风景、云海、航拍、全景 | `panorama` |
 | 一张重要竖图或合照 | `focus` |
 | 两张相关照片 | `duo` |
 | 一张主图 + 两张细节 | `triptych` |
@@ -160,7 +179,7 @@
 
 ```text
 封面
-→ focus（建立气氛）
+→ panorama（建立空间）
 → duo（动作或人物关系）
 → photo-note（用户原话）
 → triptych（环境 + 细节）

@@ -33,6 +33,11 @@ MIME_TYPES = {
     ".webp": "image/webp",
     ".gif": "image/gif",
 }
+IMAGE_PROFILES = {
+    "fast": (1280, 76),
+    "balanced": (1600, 80),
+    "quality": (2200, 86),
+}
 SOF_MARKERS = {
     0xC0,
     0xC1,
@@ -67,6 +72,17 @@ class Photo:
     @property
     def is_landscape(self) -> bool:
         return bool(self.width and self.height and self.width > self.height * 1.16)
+
+    @property
+    def aspect_ratio(self) -> float | None:
+        if not self.width or not self.height:
+            return None
+        return self.width / self.height
+
+    @property
+    def is_panoramic(self) -> bool:
+        ratio = self.aspect_ratio
+        return bool(ratio and ratio >= 1.9)
 
     @property
     def alt(self) -> str:
@@ -258,6 +274,13 @@ def evenly_select(photos: list[Photo], limit: int) -> list[Photo]:
     return [photos[index] for index in dict.fromkeys(indexes)]
 
 
+def resolve_image_settings(profile: str, max_edge: int | None, quality: int | None) -> tuple[int, int]:
+    profile_edge, profile_quality = IMAGE_PROFILES.get(profile, IMAGE_PROFILES["balanced"])
+    resolved_edge = max_edge if max_edge is not None else profile_edge
+    resolved_quality = quality if quality is not None else profile_quality
+    return max(640, resolved_edge), max(40, min(resolved_quality, 95))
+
+
 def encode_original(photo: Photo) -> str:
     mime = MIME_TYPES[photo.path.suffix.lower()]
     payload = base64.b64encode(photo.path.read_bytes()).decode("ascii")
@@ -306,9 +329,44 @@ def esc(value: Any) -> str:
     return html.escape(str(value), quote=True)
 
 
-def image_tag(photo: Photo, extra_class: str = "") -> str:
-    classes = "photo" + (f" {extra_class}" if extra_class else "")
-    return f'<img class="{classes}" src="{photo.data_uri}" alt="{esc(photo.alt)}">'
+def aspect_class(photo: Photo) -> str:
+    ratio = photo.aspect_ratio
+    if ratio is None:
+        return "aspect-unknown"
+    if ratio >= 1.9:
+        return "aspect-landscape aspect-pano"
+    if ratio > 1.16:
+        return "aspect-landscape"
+    if ratio <= 0.62:
+        return "aspect-portrait aspect-tall"
+    if ratio < 0.92:
+        return "aspect-portrait"
+    return "aspect-square"
+
+
+def fit_class(fit: str) -> str:
+    if fit in {"cover", "bleed"}:
+        return "fit-cover"
+    return "fit-contain"
+
+
+def image_tag(photo: Photo, extra_class: str = "", *, fit: str = "safe", loading: str = "") -> str:
+    class_parts = ["photo", fit_class(fit), aspect_class(photo)]
+    if extra_class:
+        class_parts.extend(extra_class.split())
+    attributes = [
+        f'class="{" ".join(class_parts)}"',
+        f'src="{photo.data_uri}"',
+        f'alt="{esc(photo.alt)}"',
+        'decoding="async"',
+    ]
+    if photo.width and photo.height:
+        attributes.extend([f'width="{photo.width}"', f'height="{photo.height}"'])
+    if loading:
+        attributes.append(f'loading="{loading}"')
+    if loading == "eager":
+        attributes.append('fetchpriority="high"')
+    return f"<img {' '.join(attributes)}>"
 
 
 def page_kicker(page_number: int, label: str = "") -> str:
@@ -325,7 +383,7 @@ def caption_block(photo: Photo) -> str:
 def cover_page(photo: Photo, title: str, subtitle: str) -> str:
     return f"""
 <section class="spread hero dark" data-layout="cover">
-  {image_tag(photo, "hero-img")}
+  {image_tag(photo, "hero-img", fit="cover", loading="eager")}
   <div class="cover">
     <p class="meta" data-anim>PHOTO ALBUM</p>
     <h1 class="h-hero" data-anim>{esc(title)}</h1>
@@ -337,9 +395,17 @@ def cover_page(photo: Photo, title: str, subtitle: str) -> str:
 def focus_page(photo: Photo, page_number: int) -> str:
     return f"""
 <section class="spread dark focus-page" data-layout="focus">
-  <div class="focus-haze" aria-hidden="true"></div>
   {page_kicker(page_number)}
-  <div class="focus-shell">{image_tag(photo)}</div>
+  <div class="focus-shell">{image_tag(photo, fit="contain")}</div>
+  {caption_block(photo)}
+</section>"""
+
+
+def panorama_page(photo: Photo, page_number: int) -> str:
+    return f"""
+<section class="spread panorama-page" data-layout="panorama">
+  {page_kicker(page_number)}
+  <div class="panorama-frame">{image_tag(photo, fit="contain")}</div>
   {caption_block(photo)}
 </section>"""
 
@@ -361,9 +427,10 @@ def story_page(photo: Photo, page_number: int, reverse: bool) -> str:
 
 def photo_note_page(photo: Photo, page_number: int, reverse: bool) -> str:
     direction = " reverse" if reverse else ""
+    note_class = " long-note" if len(photo.caption) >= 42 else ""
     return f"""
 <section class="spread" data-layout="photo-note">
-  <div class="photo-note{direction}">
+  <div class="photo-note{direction}{note_class}">
     <div class="photo-card">{image_tag(photo)}</div>
     <div class="photo-note-copy">
       {page_kicker(page_number, "旁注")}
@@ -413,6 +480,16 @@ def grid_page(photos: list[Photo], page_number: int) -> str:
 </section>"""
 
 
+def should_use_story(photo: Photo, page_number: int, story_count: int, last_story_page: int) -> bool:
+    if not photo.caption or len(photo.caption) < 28:
+        return False
+    if page_number - last_story_page < 4:
+        return False
+    if photo.is_landscape and story_count >= 2:
+        return False
+    return True
+
+
 def end_page(title: str, count: int) -> str:
     return f"""
 <section class="spread end-page" data-layout="end">
@@ -447,24 +524,33 @@ def build_spreads(
     pages = [cover_page(cover, title, subtitle)]
     page_number = 2
     pattern_index = 0
+    story_count = 0
+    last_story_page = -100
     patterns_by_composition = {
-        "auto": ("duo", "focus", "triptych", "grid", "focus"),
-        "editorial": ("focus", "duo", "focus", "triptych"),
-        "gallery": ("duo", "triptych", "grid", "focus"),
+        "auto": ("panorama", "duo", "focus", "triptych", "grid", "focus"),
+        "editorial": ("panorama", "focus", "duo", "photo-note", "triptych"),
+        "gallery": ("panorama", "duo", "triptych", "grid", "focus"),
     }
     patterns = patterns_by_composition[composition]
 
     while remaining:
-        if remaining[0].caption and len(remaining[0].caption) >= 28:
+        if should_use_story(remaining[0], page_number, story_count, last_story_page):
             photo = remaining.pop(0)
             pages.append(story_page(photo, page_number, reverse=page_number % 2 == 0))
+            story_count += 1
+            last_story_page = page_number
         elif remaining[0].caption:
             photo = remaining.pop(0)
-            pages.append(photo_note_page(photo, page_number, reverse=page_number % 2 == 1))
+            if photo.is_panoramic and len(photo.caption) < 60:
+                pages.append(panorama_page(photo, page_number))
+            else:
+                pages.append(photo_note_page(photo, page_number, reverse=page_number % 2 == 1))
         else:
             pattern = patterns[pattern_index % len(patterns)]
             pattern_index += 1
-            if len(remaining) == 1 or pattern == "focus":
+            if remaining[0].is_panoramic or pattern == "panorama" and remaining[0].is_landscape:
+                pages.append(panorama_page(remaining.pop(0), page_number))
+            elif len(remaining) == 1 or pattern == "focus":
                 pages.append(focus_page(remaining.pop(0), page_number))
             elif pattern == "grid" and len(remaining) >= 4 and not any(photo.caption for photo in remaining[:4]):
                 pages.append(grid_page(remaining[:4], page_number))
@@ -505,8 +591,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-photos", type=int, default=80, help="最多使用的照片数；0 表示全部")
     parser.add_argument("--config", type=Path, help="可选 album.json 路径")
     parser.add_argument("--template", type=Path, help="自定义模板路径")
-    parser.add_argument("--max-edge", type=int, default=2200, help="安装 Pillow 时的图片最长边")
-    parser.add_argument("--quality", type=int, default=86, help="安装 Pillow 时的 JPEG/WEBP 质量")
+    parser.add_argument(
+        "--profile",
+        choices=tuple(IMAGE_PROFILES),
+        default="balanced",
+        help="图片压缩档位；fast 更小，quality 更清晰",
+    )
+    parser.add_argument("--max-edge", type=int, default=None, help="安装 Pillow 时的图片最长边；默认跟随 profile")
+    parser.add_argument("--quality", type=int, default=None, help="安装 Pillow 时的 JPEG/WEBP 质量；默认跟随 profile")
     parser.add_argument("--no-optimize", action="store_true", help="即使安装 Pillow 也不压缩图片")
     return parser
 
@@ -541,10 +633,11 @@ def main() -> int:
     if not PIL_AVAILABLE and not args.no_optimize:
         print("提示：未安装 Pillow，将内嵌原图；安装 Pillow 后可自动旋转并压缩大图。", file=sys.stderr)
 
+    max_edge, quality = resolve_image_settings(args.profile, args.max_edge, args.quality)
     for index, photo in enumerate(photos, start=1):
         print(f"[{index:>3}/{len(photos)}] {photo.relative_name}")
         photo.data_uri = (
-            encode_optimized(photo, max(640, args.max_edge), max(40, min(args.quality, 95)))
+            encode_optimized(photo, max_edge, quality)
             if optimize
             else encode_original(photo)
         )
