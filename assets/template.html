@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-motion="layered">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -51,7 +51,14 @@
   }
 
   *{box-sizing:border-box}
-  html{scroll-behavior:smooth;background:var(--paper)}
+  html{
+    --pointer-x:0;
+    --pointer-y:0;
+    --motion-direction:1;
+    --motion-duration:820ms;
+    scroll-behavior:smooth;
+    background:var(--paper);
+  }
   body{
     margin:0;
     min-width:280px;
@@ -95,6 +102,62 @@
   }
   .spread.dark{background:var(--dark);color:var(--light)}
   .spread.hero{padding:0;background:var(--dark)}
+
+  /* 电影感阅读舞台：只让当前页和相邻页参与合成。 */
+  html.js:not([data-export]) body{height:100svh;overflow:hidden}
+  html.js:not([data-export]) #album{
+    position:relative;
+    width:100%;
+    height:100svh;
+    overflow:hidden;
+    perspective:1200px;
+    transform-style:preserve-3d;
+    scroll-snap-type:none;
+  }
+  html.js:not([data-export]) .spread{
+    position:absolute;
+    inset:0;
+    min-height:100svh;
+    opacity:0;
+    visibility:hidden;
+    pointer-events:none;
+    transform-origin:50% 50%;
+    transition:
+      transform var(--motion-duration) cubic-bezier(.62,0,.18,1),
+      opacity calc(var(--motion-duration) * .72) ease,
+      visibility 0s linear var(--motion-duration);
+  }
+  html.js:not([data-export]) .spread.is-before{
+    transform:translate3d(-7vw,0,180px) rotateY(2deg);
+  }
+  html.js:not([data-export]) .spread.is-prev{
+    z-index:2;
+    visibility:visible;
+    transform:translate3d(-3vw,0,90px) rotateY(1deg);
+  }
+  html.js:not([data-export]) .spread.is-current{
+    z-index:3;
+    opacity:1;
+    visibility:visible;
+    pointer-events:auto;
+    transform:translate3d(0,0,0);
+    transition-delay:0s;
+  }
+  html.js:not([data-export]) .spread.is-next{
+    z-index:2;
+    visibility:visible;
+    transform:translate3d(3vw,0,-120px) rotateY(-1deg);
+  }
+  html.js:not([data-export]) .spread.is-after{
+    transform:translate3d(7vw,0,-220px) rotateY(-2deg);
+  }
+  html[data-motion-direction="-1"].js:not([data-export]) .spread.is-before{transform:translate3d(7vw,0,180px) rotateY(-2deg)}
+  html[data-motion-direction="-1"].js:not([data-export]) .spread.is-prev{transform:translate3d(3vw,0,90px) rotateY(-1deg)}
+  html[data-motion-direction="-1"].js:not([data-export]) .spread.is-next{transform:translate3d(-3vw,0,-120px) rotateY(1deg)}
+  html[data-motion-direction="-1"].js:not([data-export]) .spread.is-after{transform:translate3d(-7vw,0,-220px) rotateY(2deg)}
+  html.js:not([data-export]) .spread.is-prev,
+  html.js:not([data-export]) .spread.is-current,
+  html.js:not([data-export]) .spread.is-next{will-change:transform,opacity}
 
   .photo{
     display:block;
@@ -423,13 +486,28 @@
   html.js .is-current [data-anim]:nth-child(2){transition-delay:.05s}
   html.js .is-current [data-anim]:nth-child(3){transition-delay:.1s}
   html.js .is-current [data-anim]:nth-child(4){transition-delay:.15s}
-  html.js .is-current .photo{animation:image-settle .72s cubic-bezier(.2,.7,.2,1) both}
-  @keyframes image-settle{
-    from{opacity:.94;transform:scale(1.012)}
-    to{opacity:1;transform:none}
+  html.js:not([data-export]) .is-current > :not(.page-num){
+    translate:calc(var(--pointer-x) * 5px) calc(var(--pointer-y) * 4px);
+    transition:translate .35s ease-out;
+  }
+  html.js:not([data-export]) .is-current .photo{
+    animation:cinematic-breathe 16s ease-in-out infinite alternate;
+  }
+  html.js:not([data-export]) .is-current .photo.fit-contain{animation-name:cinematic-breathe-contain}
+  @keyframes cinematic-breathe{
+    from{transform:scale(1.006)}
+    to{transform:scale(1.018)}
+  }
+  @keyframes cinematic-breathe-contain{
+    from{transform:translate3d(0,0,0) scale(1)}
+    to{transform:translate3d(0,-.35%,0) scale(1.006)}
   }
 
   @media (max-width:720px){
+    html{--motion-duration:680ms}
+    html.js:not([data-export]) .spread.is-before{transform:translate3d(-3vw,0,80px)}
+    html.js:not([data-export]) .spread.is-after{transform:translate3d(3vw,0,-110px)}
+    html.js:not([data-export]) .is-current > :not(.page-num){translate:none}
     .spread{padding:56px 20px 76px}
     .cover{padding:54px 24px 88px}
     .cover .h-hero{font-size:clamp(2.5rem,16vw,5rem)}
@@ -474,6 +552,8 @@
     transform:none!important;
     transition:none!important;
   }
+  html[data-export] .spread,
+  html[data-export] .spread *{animation:none!important;transform:none!important;translate:none!important}
   html[data-export] .page-num{right:4.5vw;bottom:3.2vh}
   html[data-export] .photo-card{border-radius:8px}
   html[data-export] .panorama-frame{height:78vh;border-radius:8px}
@@ -561,6 +641,10 @@
     html{scroll-behavior:auto}
     *,*::before,*::after{animation:none!important;transition:none!important}
     html.js [data-anim]{opacity:1;transform:none}
+    html.js:not([data-export]) .spread{
+      transform:none!important;
+      transition:opacity 160ms linear!important;
+    }
   }
 
   @media print{
@@ -576,7 +660,11 @@
       page-break-after:always;
       print-color-adjust:exact;
       -webkit-print-color-adjust:exact;
+      visibility:visible!important;
+      opacity:1!important;
+      transform:none!important;
     }
+    .spread *{animation:none!important;transform:none!important;translate:none!important}
     .spread.hero{padding:0}
     .cover{min-height:210mm}
     .duo,.grid-2x2,.triptych{height:160mm}
@@ -618,6 +706,7 @@
 
 <script>
 (() => {
+  const album = document.getElementById("album");
   const spreads = [...document.querySelectorAll(".spread")];
   const progressBar = document.getElementById("progressBar");
   const indicator = document.getElementById("pageIndicator");
@@ -627,7 +716,13 @@
   const themes = ["warm", "silver", "night"];
   const pageParams = new URLSearchParams(location.search || location.hash.slice(1));
   const exportPage = Number(pageParams.get("page"));
+  const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+  const coarsePointer = matchMedia("(pointer: coarse)");
+  const transitionMs = reducedMotion.matches ? 170 : (innerWidth <= 720 ? 680 : 820);
   let current = 0;
+  let pendingTarget = null;
+  let transitionTimer = 0;
+  let isTransitioning = false;
 
   if (!spreads.length) {
     chrome.hidden = true;
@@ -652,31 +747,57 @@
     });
   });
 
-  const update = index => {
-    current = Math.max(0, Math.min(index, spreads.length - 1));
-    spreads.forEach((spread, i) => spread.classList.toggle("is-current", i === current));
-    indicator.textContent = `${current + 1} / ${spreads.length}`;
-    progressBar.style.width = `${((current + 1) / spreads.length) * 100}%`;
+  const pageState = (index, active) => {
+    if (index < active - 1) return "is-before";
+    if (index === active - 1) return "is-prev";
+    if (index === active) return "is-current";
+    if (index === active + 1) return "is-next";
+    return "is-after";
   };
 
-  const go = index => {
+  const renderState = active => {
+    spreads.forEach((spread, index) => {
+      spread.classList.remove("is-before", "is-prev", "is-current", "is-next", "is-after");
+      spread.classList.add(pageState(index, active));
+      spread.setAttribute("aria-hidden", String(index !== active));
+      spread.inert = index !== active;
+    });
+    indicator.textContent = `${active + 1} / ${spreads.length}`;
+    progressBar.style.width = `${((active + 1) / spreads.length) * 100}%`;
+  };
+
+  const finishTransition = () => {
+    clearTimeout(transitionTimer);
+    isTransitioning = false;
+    if (pendingTarget !== null && pendingTarget !== current) {
+      const target = pendingTarget;
+      pendingTarget = null;
+      transitionTo(target);
+    }
+  };
+
+  const transitionTo = index => {
     const target = Math.max(0, Math.min(index, spreads.length - 1));
-    spreads[target].scrollIntoView({behavior:"smooth", block:"start"});
-    update(target);
+    if (lightbox.classList.contains("is-open") || target === current) return;
+    if (isTransitioning) {
+      pendingTarget = target;
+      return;
+    }
+    isTransitioning = true;
+    document.documentElement.dataset.motionDirection = target > current ? "1" : "-1";
+    current = target;
+    renderState(current);
+    transitionTimer = window.setTimeout(finishTransition, transitionMs);
   };
 
-  const observer = new IntersectionObserver(entries => {
-    const visible = entries
-      .filter(entry => entry.isIntersecting)
-      .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-    if (visible) update(spreads.indexOf(visible.target));
-  }, {threshold:[.35,.55,.75]});
+  const go = index => transitionTo(index);
+  const stepPage = delta => go((pendingTarget ?? current) + delta);
 
-  spreads.forEach(spread => observer.observe(spread));
-  update(exportPage > 0 ? exportPage - 1 : 0);
+  current = Math.max(0, Math.min(exportPage > 0 ? exportPage - 1 : 0, spreads.length - 1));
+  renderState(current);
 
-  document.getElementById("prevPage").addEventListener("click", () => go(current - 1));
-  document.getElementById("nextPage").addEventListener("click", () => go(current + 1));
+  document.getElementById("prevPage").addEventListener("click", () => stepPage(-1));
+  document.getElementById("nextPage").addEventListener("click", () => stepPage(1));
   document.getElementById("themeToggle").addEventListener("click", () => {
     const next = (themes.indexOf(document.body.dataset.theme) + 1) % themes.length;
     document.body.dataset.theme = themes[next];
@@ -697,6 +818,8 @@
     image.addEventListener("click", () => {
       lightboxImage.src = image.src;
       lightboxImage.alt = image.alt;
+      document.documentElement.style.setProperty("--pointer-x", "0");
+      document.documentElement.style.setProperty("--pointer-y", "0");
       lightbox.classList.add("is-open");
     });
   });
@@ -705,15 +828,49 @@
   });
   document.getElementById("lightboxClose").addEventListener("click", closeLightbox);
 
+  let touchStartX = 0;
+  let touchStartY = 0;
+  album.addEventListener("touchstart", event => {
+    const touch = event.changedTouches[0];
+    touchStartX = touch.clientX;
+    touchStartY = touch.clientY;
+  }, {passive:true});
+  album.addEventListener("touchend", event => {
+    if (lightbox.classList.contains("is-open")) return;
+    const touch = event.changedTouches[0];
+    const dx = touch.clientX - touchStartX;
+    const dy = touch.clientY - touchStartY;
+    if (Math.abs(dx) < 44 || Math.abs(dx) < Math.abs(dy)) return;
+    stepPage(dx < 0 ? 1 : -1);
+  }, {passive:true});
+
+  let pointerFrame = 0;
+  const setPointerDepth = event => {
+    if (reducedMotion.matches || coarsePointer.matches || lightbox.classList.contains("is-open")) return;
+    const x = event.clientX / innerWidth * 2 - 1;
+    const y = event.clientY / innerHeight * 2 - 1;
+    cancelAnimationFrame(pointerFrame);
+    pointerFrame = requestAnimationFrame(() => {
+      document.documentElement.style.setProperty("--pointer-x", x.toFixed(3));
+      document.documentElement.style.setProperty("--pointer-y", y.toFixed(3));
+    });
+  };
+  window.addEventListener("pointermove", setPointerDepth, {passive:true});
+  document.documentElement.addEventListener("mouseleave", () => {
+    document.documentElement.style.setProperty("--pointer-x", "0");
+    document.documentElement.style.setProperty("--pointer-y", "0");
+  });
+
   document.addEventListener("keydown", event => {
     if (event.target.closest("input,textarea,select,button")) return;
     if (event.key === "Escape" && lightbox.classList.contains("is-open")) return closeLightbox();
+    if (lightbox.classList.contains("is-open")) return;
     if (["ArrowRight","ArrowDown","PageDown"," "].includes(event.key)) {
       event.preventDefault();
-      go(current + 1);
+      stepPage(1);
     } else if (["ArrowLeft","ArrowUp","PageUp"].includes(event.key)) {
       event.preventDefault();
-      go(current - 1);
+      stepPage(-1);
     } else if (event.key === "Home") {
       event.preventDefault();
       go(0);
