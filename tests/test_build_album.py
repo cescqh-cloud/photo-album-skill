@@ -109,6 +109,7 @@ class CinematicMotionTemplateTests(unittest.TestCase):
     def test_template_supports_depth_and_accessible_fallbacks(self) -> None:
         self.assertIn("--pointer-x", TEMPLATE)
         self.assertIn("requestAnimationFrame", TEMPLATE)
+        self.assertIn('id="album" tabindex="-1"', TEMPLATE)
         self.assertIn("prefers-reduced-motion:reduce", TEMPLATE)
         self.assertIn('html[data-export]', TEMPLATE)
         self.assertIn("@media print", TEMPLATE)
