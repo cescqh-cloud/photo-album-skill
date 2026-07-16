@@ -12,6 +12,7 @@ assert SPEC and SPEC.loader
 build_album = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = build_album
 SPEC.loader.exec_module(build_album)
+TEMPLATE = (ROOT / "assets" / "template.html").read_text(encoding="utf-8")
 
 
 def make_photo(
@@ -92,6 +93,25 @@ class LayoutSelectionTests(unittest.TestCase):
 
         self.assertLessEqual(spreads.count('data-layout="story"'), 2)
         self.assertGreaterEqual(spreads.count('data-layout="photo-note"'), 2)
+
+
+class CinematicMotionTemplateTests(unittest.TestCase):
+    def test_template_declares_layered_motion_states(self) -> None:
+        self.assertIn('data-motion="layered"', TEMPLATE)
+        for state in ("is-before", "is-prev", "is-current", "is-next", "is-after"):
+            self.assertIn(state, TEMPLATE)
+
+    def test_template_merges_navigation_requests(self) -> None:
+        self.assertIn("pendingTarget", TEMPLATE)
+        self.assertIn("transitionTo", TEMPLATE)
+        self.assertIn("finishTransition", TEMPLATE)
+
+    def test_template_supports_depth_and_accessible_fallbacks(self) -> None:
+        self.assertIn("--pointer-x", TEMPLATE)
+        self.assertIn("requestAnimationFrame", TEMPLATE)
+        self.assertIn("prefers-reduced-motion:reduce", TEMPLATE)
+        self.assertIn('html[data-export]', TEMPLATE)
+        self.assertIn("@media print", TEMPLATE)
 
 
 if __name__ == "__main__":
